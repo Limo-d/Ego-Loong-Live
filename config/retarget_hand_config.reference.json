@@ -1,0 +1,135 @@
+{
+  "_说明": "hand_host 配置。port/baud=串口; nodes=IMU全局节点号=总线*100+ID(CAN1->1xx, CAN2->2xx, ID为can_node_id十六进制字面值如0x11->11; palm=手背,<0表示没有; fingers=拇指..小指 各[近,中,远]); line=can行列号(0起; bus_col=总线号列; gyro_cols为null用四元数差分代理, 拿到真陀螺列号后填[x,y,z]列与缩放到rad/s的系数); targets=校准进度目标(度); bones_mm=骨长(近/中/远, 拇指为掌骨/近节/远节); mcp_offsets_mm=各指根关节相对手腕的位置[前向,背向,拇指侧](拇指为CMC位置); hand=left/right",
+  "port": "/dev/ttyACM0",
+  "baud": 1000000,
+  "http_port": 8765,
+  "protocol": "modbus",
+  "slave": 1,
+  "nodes": {
+    "palm": 217,
+    "fingers": [
+      [
+        111,
+        112,
+        113
+      ],
+      [
+        114,
+        115,
+        116
+      ],
+      [
+        117,
+        118,
+        218
+      ],
+      [
+        214,
+        215,
+        216
+      ],
+      [
+        211,
+        212,
+        213
+      ]
+    ]
+  },
+  "line": {
+    "bus_col": 1,
+    "node_col": 4,
+    "qsrc_col": 16,
+    "quat_cols": [
+      17,
+      18,
+      19,
+      20
+    ],
+    "quat_scale": 0.0001,
+    "gyro_cols": null,
+    "gyro_scale": 1
+  },
+  "targets": {
+    "rotate_deg": 45,
+    "bend_deg": 40
+  },
+  "calib": {
+    "rigid_rel_tol": 0.2
+  },
+  "hand": "left",
+  "bones_mm": {
+    "thumb": [
+      47,
+      53,
+      31.4
+    ],
+    "index": [
+      46.6,
+      28.6,
+      24.4
+    ],
+    "middle": [
+      51.6,
+      30.5,
+      25.7
+    ],
+    "ring": [
+      47.6,
+      31.4,
+      23.5
+    ],
+    "little": [
+      31.7,
+      22.6,
+      24.1
+    ]
+  },
+  "mcp_offsets_mm": {
+    "thumb": [
+      6.9,
+      -4.4,
+      29.8
+    ],
+    "index": [
+      84,
+      0,
+      27
+    ],
+    "middle": [
+      88,
+      0,
+      13
+    ],
+    "ring": [
+      83,
+      0,
+      -2.8
+    ],
+    "little": [
+      74,
+      0,
+      -16.9
+    ]
+  },
+  "viz": {
+    "thumb_base_deg": [
+      -18,
+      10,
+      0
+    ],
+    "flex_sign": 1,
+    "swing_sign": -1,
+    "thumb_flex_sign": 1,
+    "thumb_swing_sign": 1,
+    "rest_pose_deg": [
+      0,
+      0,
+      45
+    ],
+    "palm_mount_corr_deg": [
+      1.9,
+      4.6,
+      -7.5
+    ]
+  }
+}

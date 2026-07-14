@@ -1,0 +1,10 @@
+.hand-canvas-wrap {
+  background:
+    radial-gradient(circle at 23% 28%, rgba(185, 220, 255, .34), transparent 32%),
+    radial-gradient(circle at 77% 30%, rgba(255, 209, 220, .32), transparent 32%),
+    linear-gradient(155deg, rgba(255, 255, 255, .98), rgba(239, 247, 252, .96) 66%, rgba(230, 242, 249, .97));
+}
+
+.hand-canvas-wrap::after {
+  box-shadow: inset 0 0 48px rgba(103, 151, 183, .07);
+}

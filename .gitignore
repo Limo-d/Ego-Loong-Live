@@ -1,0 +1,65 @@
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python bytecode and tool caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Python packaging
+*.egg-info/
+.eggs/
+dist/
+pip-wheel-metadata/
+
+# ROS 2 / colcon generated output
+/build/
+/install/
+/log/
+/hand_msg_ws/build/
+/hand_msg_ws/install/
+/hand_msg_ws/log/
+compile_commands.json
+
+# Runtime output
+*.log
+*.pid
+*.pid.lock
+*.db3
+*.mcap
+*.bag
+rosbag2_*/
+recordings/
+captures/
+
+# Local machine and deployment configuration
+.env
+.env.*
+!.env.example
+config/device*.yaml
+config/local*.yaml
+config/*.local.yaml
+
+# Credentials and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Editors and operating systems
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

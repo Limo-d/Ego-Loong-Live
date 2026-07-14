@@ -1,0 +1,70 @@
+server:
+  host: 0.0.0.0
+  port: 8000
+
+mode:
+  mock: false
+
+ros:
+  domain_id: 0
+  discovery_refresh_seconds: 2.0
+
+topics:
+  rgb:
+    name: /factor_perception/rgb/image_rect/compressed
+    type: sensor_msgs/msg/CompressedImage
+  hand:
+    name: /hand_frame
+    type: hand_frame/msg/HandFrame
+  tactile_left:
+    name: /hand_frame
+    type: hand_frame/msg/HandFrame
+    field: pressure_left
+  tactile_right:
+    name: /hand_frame
+    type: hand_frame/msg/HandFrame
+    field: pressure_right
+
+rgb:
+  width: 960
+  height: 540
+  aspect_ratio: "16:9"
+  max_fps: 30
+  queue_depth: 1
+  jpeg_quality: 75
+  passthrough_compressed: false
+  preserve_full_frame: true
+  allow_crop: false
+
+hand:
+  max_fps: 60
+  geometry_config: config/retarget_hand_config.reference.json
+  sentinel_abs: 100000000.0
+  apply_palm_orientation: true
+  anchor_initial_palm: true
+  freeze_palm_orientation: true
+
+tactile:
+  max_fps: 30
+  baseline_frames: 24
+  noise_gate: 1.0
+  ema_rise: 0.58
+  ema_fall: 0.22
+  auto_range: true
+  fixed_min: 0.0
+  fixed_max: 160.0
+  contact_threshold: 3.0
+  high_threshold: 16.0
+  mirror_left: false
+  mirror_right: false
+
+timeout:
+  rgb_seconds: 2.0
+  hand_seconds: 1.0
+  tactile_seconds: 1.0
+
+acquisition:
+  operator: ""
+  task_name: ""
+  scene_name: ""
+  save_path: ""

@@ -1,0 +1,8 @@
+# ROS 2 packages (rclpy, sensor_msgs, hand_frame) come from sourced workspaces.
+# NumPy and OpenCV are expected from the ROS/system Python environment.
+fastapi>=0.110,<1
+uvicorn>=0.29,<1
+PyYAML>=6,<7
+psutil>=5.9,<8
+websockets>=12,<16
+

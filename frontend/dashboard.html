@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Ego-Loong Live Dashboard</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=20260713b">
+  <link rel="stylesheet" href="/static/css/rgb-frame.css?v=20260711p">
+  <link rel="stylesheet" href="/static/css/hand-cute.css?v=20260713f">
+  <style>.tactile-card[data-side="right"] .tactile-hand-image{transform:scaleX(-1)}</style>
+  <script type="importmap">{"imports":{"three":"/static/vendor/three.module.min.js"}}</script>
+</head>
+<body data-page="dashboard" class="dashboard-page">
+  <header class="topbar">
+    <a href="/" class="brand"><span class="brand-mark">EL</span><span><b>Ego-Loong Live</b><small>Ego-Centric</small></span></a>
+    <nav class="view-nav" aria-label="视图切换">
+      <button data-view="overview" class="active">综合视图</button>
+      <button data-view="tactile">触觉视图</button>
+      <button data-view="hand">手部姿态</button>
+    </nav>
+    <div class="top-status">
+      <span class="status-chip" id="chip-ws"><i></i>WebSocket</span>
+      <span class="status-chip" id="chip-rgb"><i></i>RGB</span>
+      <span class="clock" id="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <main class="dashboard-main">
+    <section class="view active" id="view-overview">
+      <div class="overview-grid">
+        <div class="overview-primary">
+          <div id="overview-rgb-slot"></div>
+          <section class="glass-card acquisition-card" id="acquisition-card">
+            <div class="card-heading compact"><div><h2>采集信息</h2></div><span id="acq-state" class="mode-pill">PREVIEW</span></div>
+            <div class="acquisition-grid">
+              <label>任务<input id="acq-task" placeholder="待填写"></label>
+              <label>场景<input id="acq-scene" placeholder="待填写"></label>
+              <label>操作者<input id="acq-operator" placeholder="待填写"></label>
+              <label>保存目录<input id="acq-save" placeholder="接口待接入"></label>
+            </div>
+            <div class="acquisition-metrics">
+              <span>时长 <b id="acq-duration">00:00:00</b></span>
+              <span>RGB <b id="acq-rgb-count">0</b></span>
+              <span>Hand <b id="acq-hand-count">0</b></span>
+              <span>事件 <b id="acq-event-count">0</b></span>
+            </div>
+            <div class="acquisition-actions">
+              <button data-acq="new">新建任务</button><button data-acq="start" class="accent">开始采集</button>
+              <button data-acq="pause">暂停</button><button data-acq="resume">继续</button>
+              <button data-acq="stop">停止</button><button data-acq="mark">添加标记</button>
+              <span id="acq-message">真实控制接口暂未接入</span>
+            </div>
+          </section>
+        </div>
+        <div class="overview-secondary">
+          <div id="overview-tactile-slot" class="tactile-pair compact-pair"></div>
+          <div id="overview-hand-slot"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-tactile">
+      <div class="view-title"><div><small>TACTILE ARRAY</small><h1>双手触觉</h1></div>
+        <div class="toolbar tactile-toolbar">
+          <button data-tactile-mode="smooth" class="active">平滑数据</button><button data-tactile-mode="raw">原始数据</button>
+          <button id="toggle-tactile-range">自动范围</button><button id="toggle-tactile-values">显示数值</button><button id="toggle-tactile-ids">显示编号</button>
+        </div>
+      </div>
+      <div id="tactile-full-slot" class="tactile-pair large-pair"></div>
+      <section class="glass-card history-card"><div class="card-heading compact"><div><small>10 SECOND WINDOW</small><h2>触觉历史曲线</h2></div><div class="history-legend"><span class="lmax">左最大</span><span class="rmax">右最大</span><span class="lavg">左平均</span><span class="ravg">右平均</span></div></div><canvas id="tactile-history"></canvas></section>
+    </section>
+
+    <section class="view" id="view-hand">
+      <div class="view-title"><div><small>HUMAN HAND KINEMATICS</small><h1>双手姿态</h1></div><span class="note">坐标：x 指尖 / y 手背 / z 拇指侧</span></div>
+      <div class="hand-view-grid"><div id="hand-main-slot"></div><section class="glass-card joint-panel"><div class="card-heading compact"><div><small>JOINT ANGLES · DEG</small><h2>关节角</h2></div><select id="joint-side"><option value="left">左手</option><option value="right">右手</option></select></div><div id="joint-angle-list"></div></section></div>
+    </section>
+
+  </main>
+
+  <div id="component-staging" hidden>
+    <section class="glass-card rgb-card" id="rgb-card">
+      <div class="card-heading compact"><div><h2>实时相机</h2></div><button class="icon-button" id="rgb-fullscreen" title="全屏">⛶</button></div>
+      <div class="rgb-frame" id="rgb-frame"><img id="rgb-image" alt="RGB 实时画面"><div class="empty-state" id="rgb-empty">等待图像数据</div></div>
+      <div class="metric-strip"><span>分辨率 <b id="rgb-resolution">--</b></span><span>显示/源 <b id="rgb-fps">0 / 0 Hz</b></span><span>最近 <b id="rgb-last">--</b></span></div>
+    </section>
+
+    <section class="glass-card tactile-card" id="tactile-left-card" data-side="left"><div class="card-heading compact"><div><h2>左手触觉</h2></div><span class="data-pill">WAIT</span></div><div class="tactile-canvas-wrap"><div class="tactile-hand-stage"><img class="tactile-hand-image" src="/static/assets/hand_live.png" alt="左手触觉底图"><canvas></canvas></div></div><div class="tactile-stats"><span>最大<b data-stat="maximum">0</b></span><span>平均<b data-stat="average">0</b></span><span>接触<b data-stat="contact_count">0</b></span><span>超阈值<b data-stat="high_count">0</b></span></div></section>
+    <section class="glass-card tactile-card" id="tactile-right-card" data-side="right"><div class="card-heading compact"><div><h2>右手触觉</h2></div><span class="data-pill">WAIT</span></div><div class="tactile-canvas-wrap"><div class="tactile-hand-stage"><img class="tactile-hand-image" src="/static/assets/hand_live.png" alt="右手触觉底图"><canvas></canvas></div></div><div class="tactile-stats"><span>最大<b data-stat="maximum">0</b></span><span>平均<b data-stat="average">0</b></span><span>接触<b data-stat="contact_count">0</b></span><span>超阈值<b data-stat="high_count">0</b></span></div></section>
+
+    <section class="glass-card hand-card" id="hand-card"><div class="card-heading compact"><div><h2>手部姿态</h2></div><div class="toolbar hand-toolbar"><button data-camera="front">正视</button><button data-camera="side">侧视</button><button data-camera="top">俯视</button><button data-camera="reset">重置</button><select id="hand-visible" aria-label="手部显示范围"><option value="both">双手</option><option value="left">仅左手</option><option value="right">仅右手</option></select><select id="hand-display-mode" aria-label="手部显示模式"><option value="surface">重建手</option><option value="skeleton">骨架</option><option value="both">重建手 + 骨架</option></select><button id="toggle-hand-smoothing" class="active">平滑</button><button id="toggle-axes">坐标轴</button><button id="toggle-labels">名称</button></div></div><div class="hand-canvas-wrap"><canvas id="hand-canvas"></canvas><div class="hand-status"><span id="hand-right-status">右手等待</span><span id="hand-left-status">左手等待</span><span id="frontend-fps">Render 0 FPS</span></div></div></section>
+  </div>
+
+  <script type="module" src="/static/js/app.js?v=20260714a"></script>
+</body>
+</html>

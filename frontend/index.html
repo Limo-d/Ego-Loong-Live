@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Ego-Loong Live</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=20260713e">
+  <script type="importmap">{"imports":{"three":"/static/vendor/three.module.min.js"}}</script>
+</head>
+<body data-page="landing" class="landing-page">
+  <main class="landing-shell">
+    <section class="landing-copy">
+      <div class="eyebrow"><span class="pulse-dot"></span> EGOCENTRIC PERCEPTION · LIVE</div>
+      <h1>Ego-Loong <span>Live</span></h1>
+      <p class="subtitle">Ego-Centric Data Visualization</p>
+      <p class="landing-description">集中呈现第一视角画面、双手触觉与手部姿态。</p>
+      <div class="landing-capabilities"><span>第一视角</span><span>双手触觉</span><span>手部姿态</span></div>
+      <a class="primary-button" href="/dashboard">进入实时展示 <span>→</span></a>
+    </section>
+    <section class="landing-status glass-card">
+      <div class="card-heading landing-status-heading"><div><small>READY TO CAPTURE</small><h2>系统就绪状态</h2></div><span id="landing-mode" class="mode-pill">--</span></div>
+      <div class="readiness-list">
+        <div><span>应用服务</span><b id="landing-backend" class="status-text waiting">检查中</b></div>
+        <div><span>实时连接</span><b id="landing-ws" class="status-text waiting">连接中</b></div>
+        <div><span>数据接入</span><b id="landing-ros" class="status-text waiting">检查中</b></div>
+        <div><span>相机画面</span><b id="landing-rgb" class="status-text waiting">等待数据</b></div>
+        <div><span>双手数据</span><b id="landing-hand" class="status-text waiting">等待数据</b></div>
+      </div>
+      <div class="source-summary">
+        <small>LIVE CAPABILITIES</small>
+        <p id="landing-sources">正在确认实时数据能力…</p>
+      </div>
+    </section>
+  </main>
+  <footer class="landing-footer">EGO-LOONG · EGOCENTRIC SENSING · LIVE VISUALIZATION</footer>
+  <script type="module" src="/static/js/app.js?v=20260714a"></script>
+</body>
+</html>
