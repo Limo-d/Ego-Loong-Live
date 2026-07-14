@@ -42,8 +42,8 @@ class MockDataEngine(threading.Thread):
         self.image = ImageProcessor(config.get("rgb", {}))
         self.hand = HandPoseProcessor(config.get("hand", {}))
         self.tactile = {
-            "left": TactileProcessor(config.get("tactile", {}), "left"),
-            "right": TactileProcessor(config.get("tactile", {}), "right"),
+            "left": TactileProcessor(config.get("tactile", {}), "left", allow_bend_decoupling=False),
+            "right": TactileProcessor(config.get("tactile", {}), "right", allow_bend_decoupling=False),
         }
         self.start_time = time.monotonic()
 

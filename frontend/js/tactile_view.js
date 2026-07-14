@@ -40,10 +40,12 @@ export class TactileView {
       const x=(this.side==='right'?1-p[0]:p[0])*cw,y=p[1]*ch;
       const sourceIndex=sourceIndexFor(this.side,i);
       const v=Math.max(0,Math.min(1,(values[sourceIndex]||0)/100)),r=4+v*size*.045;
-      const g=ctx.createRadialGradient(x,y,0,x,y,r);
-      g.addColorStop(0,color(v,.95));g.addColorStop(.4,color(v,.42));g.addColorStop(1,color(v,0));
-      ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle=color(Math.min(1,v+.15),1);ctx.beginPath();ctx.arc(x,y,2+v*2.5,0,Math.PI*2);ctx.fill();
+      if(v>0){
+        const g=ctx.createRadialGradient(x,y,0,x,y,r);
+        g.addColorStop(0,color(v,.95));g.addColorStop(.4,color(v,.42));g.addColorStop(1,color(v,0));
+        ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle=color(Math.min(1,v+.15),1);ctx.beginPath();ctx.arc(x,y,2+v*2.5,0,Math.PI*2);ctx.fill();
+      }
       if(this.showIds||this.showValues){
         ctx.font='9px ui-monospace';ctx.fillStyle='#244d68';
         const text=[this.showIds?this.layout.names[sourceIndex]:'',this.showValues?Number((this.mode==='raw'?this.data.raw[sourceIndex]:this.data.smoothed[sourceIndex])||0).toFixed(1):''].filter(Boolean).join(' ');

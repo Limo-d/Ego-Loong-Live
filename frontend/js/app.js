@@ -1,7 +1,7 @@
 import { LiveSocket } from './websocket.js';
 import { Navigation } from './navigation.js';
 import { RGBView } from './rgb_view.js?v=20260713d';
-import { TactileView, TactileHistory } from './tactile_view.js?v=20260713b';
+import { TactileView, TactileHistory } from './tactile_view.js?v=20260714c';
 import { HandView, HandFallbackView } from './hand_view.js?v=20260714a';
 import { AcquisitionView } from './acquisition_view.js';
 

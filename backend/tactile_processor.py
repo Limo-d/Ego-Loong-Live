@@ -10,6 +10,8 @@ from __future__ import annotations
 import statistics
 from typing import Any
 
+from .tactile_bend_decoupler import TactileBendDecoupler
+
 SENSOR_NAMES = tuple(
     [f"A{i}" for i in range(4)]
     + [f"B{i}" for i in range(4)]
@@ -49,7 +51,7 @@ POINTS = build_points()
 
 
 class TactileProcessor:
-    def __init__(self, config: dict[str, Any], side: str) -> None:
+    def __init__(self, config: dict[str, Any], side: str, *, allow_bend_decoupling: bool = True) -> None:
         self.side = side
         self.baseline_frames = max(1, int(config.get("baseline_frames", 24)))
         self.noise_gate = float(config.get("noise_gate", 1.5))
@@ -59,8 +61,11 @@ class TactileProcessor:
         self.fixed_min = float(config.get("fixed_min", 0.0))
         self.fixed_max = max(self.fixed_min + 1.0, float(config.get("fixed_max", 160.0)))
         self.contact_threshold = float(config.get("contact_threshold", 4.0))
+        self.display_deadzone = max(0.0, float(config.get("display_deadzone", self.contact_threshold)))
         self.high_threshold = float(config.get("high_threshold", 20.0))
         self.mirror = bool(config.get(f"mirror_{side}", False))
+        bend_config = config if allow_bend_decoupling else {**config, "bend_decoupling": {"enabled": False}}
+        self.bend_decoupler = TactileBendDecoupler(bend_config, side)
         self.reset()
 
     def reset(self) -> None:
@@ -77,20 +82,26 @@ class TactileProcessor:
         self.fixed_max = max(self.fixed_min + 1.0, float(maximum))
         self._display_range = self.fixed_max
 
-    def process(self, values: list[float] | tuple[float, ...]) -> dict[str, Any]:
+    def process(
+        self,
+        values: list[float] | tuple[float, ...],
+        solve_state: list[float] | tuple[float, ...] | None = None,
+    ) -> dict[str, Any]:
         raw = [float(v) for v in values]
         if len(raw) != 68:
             raise ValueError(f"{self.side} tactile array must contain 68 values, got {len(raw)}")
+        compensated, bend = self.bend_decoupler.apply(raw, solve_state)
 
         if self._baseline is None:
-            self._baseline_buffer.append(raw)
+            self._baseline_buffer.append(compensated)
             if len(self._baseline_buffer) >= self.baseline_frames:
                 self._baseline = [float(statistics.median(column)) for column in zip(*self._baseline_buffer)]
             delta = [0.0] * 68
         else:
             delta = []
-            for index, value in enumerate(raw):
-                current = abs(value - self._baseline[index])
+            for index, value in enumerate(compensated):
+                signed_delta = value - self._baseline[index]
+                current = max(0.0, signed_delta)
                 if current <= self.noise_gate:
                     current = 0.0
                     self._baseline[index] = self._baseline[index] * 0.999 + value * 0.001
@@ -107,12 +118,18 @@ class TactileProcessor:
             self._display_range = max(8.0, min(4096.0, self._display_range))
         else:
             self._display_range = self.fixed_max
-        span = max(1e-6, self._display_range - self.fixed_min)
-        display = [max(0.0, min(100.0, (value - self.fixed_min) / span * 100.0)) for value in delta]
+        # Filtering retains small residuals for diagnostics, but the artwork
+        # should stay visually quiet until a value represents real contact.
+        # Subtracting the deadzone also avoids auto-range magnifying an idle
+        # residual into a prominent dot.
+        display_min = max(self.fixed_min, self.display_deadzone)
+        span = max(1e-6, self._display_range - display_min)
+        display = [max(0.0, min(100.0, (value - display_min) / span * 100.0)) for value in delta]
         peak_index = delta.index(peak) if peak > 0 else -1
         return {
             "side": self.side,
             "raw": [round(v, 4) for v in raw],
+            "compensated": [round(v, 4) for v in compensated],
             "smoothed": [round(v, 4) for v in delta],
             "display": [round(v, 3) for v in display],
             "baseline_ready": self._baseline is not None,
@@ -120,12 +137,14 @@ class TactileProcessor:
             "range_mode": "auto" if self.auto_range else "fixed",
             "display_min": self.fixed_min,
             "display_max": round(self._display_range, 3),
+            "display_deadzone": self.display_deadzone,
             "maximum": round(peak, 4),
             "average": round(sum(delta) / 68.0, 4),
             "nonzero_count": sum(value > 0 for value in delta),
             "contact_count": sum(value >= self.contact_threshold for value in delta),
             "high_count": sum(value >= self.high_threshold for value in delta),
             "peak_sensor": SENSOR_NAMES[peak_index] if peak_index >= 0 else None,
+            "bend_decoupling": bend,
             "mirror": self.mirror,
             "unit": "raw/Delta (physical unit pending confirmation)",
         }
@@ -142,4 +161,3 @@ def layout_payload() -> dict[str, Any]:
         "source": "/home/lenovo/Ego-loong-postprocess/scripts/live_tactile_68_web.py",
         "mirror_note": "Reference is single-hand only; per-side mirroring is configurable and pending hardware confirmation.",
     }
-

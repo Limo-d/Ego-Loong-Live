@@ -322,30 +322,13 @@ sudo ufw allow 8000/tcp
 
 ### 3.10 Docker 镜像部署（推荐用于快速迁移）
 
-仓库提供基于 Ubuntu 24.04 和 ROS 2 Jazzy 的 `Dockerfile`。镜像中已经包含：
-
-- ROS 2 Jazzy `ros-base`
-- `rmw_zenoh_cpp`、`rclpy`、`sensor_msgs`
-- 编译完成的项目自定义消息 `hand_frame`
-- FastAPI、Uvicorn、WebSocket、NumPy、Pillow 等运行依赖
-- 后端、前端、默认配置和健康检查
-
-浏览器仍在宿主机打开，不需要装进容器。首次构建默认使用清华 Ubuntu、ROS 2 和 PyPI 镜像源：
+仓库提供基于 Ubuntu 24.04 和 ROS 2 Jazzy 的 `Dockerfile`，包含 ROS、Python
+依赖、自定义消息、前后端、默认配置及左右手触觉标定文件。当前镜像标签为
+`ge89jar/ego-loong-live:0714`。
 
 ```bash
 cd ~/Ego-Loong-Live
-docker build -t ego-loong-live:jazzy .
-```
-
-如不在国内，可切换回官方源：
-
-```bash
-docker build -t ego-loong-live:jazzy \
-  --build-arg UBUNTU_MIRROR=http://archive.ubuntu.com/ubuntu \
-  --build-arg UBUNTU_SECURITY_MIRROR=http://security.ubuntu.com/ubuntu \
-  --build-arg ROS_MIRROR=http://packages.ros.org/ros2/ubuntu \
-  --build-arg PYPI_MIRROR=https://pypi.org/simple \
-  .
+docker build -t ge89jar/ego-loong-live:0714 .
 ```
 
 先用 Mock 模式验收容器，不依赖真实设备：
@@ -353,7 +336,7 @@ docker build -t ego-loong-live:jazzy \
 ```bash
 docker run --rm --name ego-loong-live-mock \
   -p 8000:8000 \
-  ego-loong-live:jazzy \
+  ge89jar/ego-loong-live:0714 \
   python -m backend.main --mock
 ```
 
@@ -363,21 +346,13 @@ docker run --rm --name ego-loong-live-mock \
 docker run --rm --name ego-loong-live \
   --network host \
   -e EGO_ZENOH_ROUTER_ENDPOINT=tcp/192.168.3.13:7447 \
-  ego-loong-live:jazzy
+  ge89jar/ego-loong-live:0714
 ```
 
 使用 `--network host` 时不需要 `-p 8000:8000`。如设备 IP 改变，只改 `EGO_ZENOH_ROUTER_ENDPOINT`，无需重新构建镜像。
 
-使用独立设备配置文件时：
-
-```bash
-docker run --rm --name ego-loong-live \
-  --network host \
-  -e EGO_ZENOH_ROUTER_ENDPOINT=tcp/192.168.3.13:7447 \
-  -e EGO_LOONG_LIVE_CONFIG=/opt/ego-loong-live/config/device01.yaml \
-  -v "$PWD/config/device01.yaml:/opt/ego-loong-live/config/device01.yaml:ro" \
-  ego-loong-live:jazzy
-```
+如需使用独立设备配置或新标定文件，通过 `-v` 挂载到容器内的 `config/`；
+否则修改配置后重新构建镜像。
 
 后台运行和查看日志：
 
@@ -385,7 +360,7 @@ docker run --rm --name ego-loong-live \
 docker run -d --restart unless-stopped --name ego-loong-live \
   --network host \
   -e EGO_ZENOH_ROUTER_ENDPOINT=tcp/192.168.3.13:7447 \
-  ego-loong-live:jazzy
+  ge89jar/ego-loong-live:0714
 
 docker logs -f ego-loong-live
 docker stop ego-loong-live
@@ -395,10 +370,10 @@ docker stop ego-loong-live
 
 ```bash
 # 原电脑导出
-docker save ego-loong-live:jazzy | gzip > ego-loong-live-jazzy.tar.gz
+docker save ge89jar/ego-loong-live:0714 | gzip > ego-loong-live-0714.tar.gz
 
 # 将文件复制到新电脑后导入
-gunzip -c ego-loong-live-jazzy.tar.gz | docker load
+gunzip -c ego-loong-live-0714.tar.gz | docker load
 ```
 
 导入后直接执行上面的 `docker run` 命令，不需要再次安装 ROS 2 或 Python 依赖。
@@ -456,7 +431,9 @@ EGO_LOONG_LIVE_PORT=8001 ./scripts/run.sh
 | `hand.geometry_config` | 手型骨长、根部偏移和姿态校正配置 |
 | `hand.freeze_palm_orientation` | 固定腕部/手掌整体姿态 |
 | `tactile.noise_gate` | 触觉噪声门限，越小越灵敏 |
+| `tactile.display_deadzone` | 触觉显示死区；低于该值的空载残差不着色 |
 | `tactile.ema_rise/fall` | 触觉上升和回落平滑系数 |
+| `tactile.bend_decoupling` | 按 14 维关节姿态匹配空手模板并消除弯曲伪压力；左右手使用独立标定文件 |
 | `timeout.*` | 各数据通道断流判定时间 |
 
 手部配置位于 `config/retarget_hand_config.reference.json`。其中：
@@ -689,11 +666,24 @@ rgb:
 
 ### 8.1 触觉
 
-- 每手 68 点，前 20 点为五指，后 48 点为手掌。
-- 启动后前 `baseline_frames` 帧用于空载基线。
-- 基线期间不要按压手套。
-- 提高灵敏度可小幅降低 `noise_gate` 或提高 `ema_rise`。
-- 不要直接将 `noise_gate` 设为 0，否则空载噪声会持续触发。
+- 每手 68 点：五指 20 点，手掌 48 点。
+- 每次启动的前 24 帧为空载零压力标定，此时保持双手自然展开且不要按压。
+- 左右手分别使用 `config/tactile/joint_decouple_calib_left.npz` 和
+  `joint_decouple_calib_right.npz`，弯曲模板无需每次启动重采。
+- `contact_threshold` 和 `display_deadzone` 默认均为 `3.0`，低于死区及零压力的点不着色。
+- 姿态超出模板范围时会退回普通零点基线；如频繁发生，应重新采集完整屈伸范围。
+- 调低 `noise_gate` 或调高 `ema_rise` 可提高灵敏度，但不要将 `noise_gate` 设为 0。
+
+重新标定时不要接触物体，在默认 12 秒内缓慢完成伸直到握拳：
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source hand_msg_ws/install/setup.bash
+.venv/bin/python scripts/calibrate_tactile_bend.py --side left
+.venv/bin/python scripts/calibrate_tactile_bend.py --side right
+```
+
+采集完成后重启服务即可。
 
 ### 8.2 手部姿态
 
@@ -820,7 +810,9 @@ cd ~/Ego-Loong-Live
 
 ```text
 backend/                          FastAPI、ROS 订阅和数据处理
+backend/tactile_bend_decoupler.py 触觉弯曲姿态模板匹配与解耦
 config/config.yaml                默认运行配置
+config/tactile/                   左右手触觉弯曲解耦标定文件
 config/retarget_hand_config.reference.json
                                   手型骨长、指根和姿态校正
 frontend/                         页面、样式、Canvas、Three.js
@@ -831,6 +823,7 @@ scripts/run.sh                    真实 ROS 2/Zenoh 模式
 scripts/run_mock.sh               Mock 模式
 scripts/check_topics.sh           Topic 发现、类型和频率检查
 scripts/diagnose.sh               环境、Topic、端口和进程诊断
+scripts/calibrate_tactile_bend.py 左右手空载弯曲模板采集
 tests/                            单元测试
 docs/interface_audit.md           数据接口审计记录
 ```
@@ -856,6 +849,7 @@ docs/interface_audit.md           数据接口审计记录
 - [ ] 笔记本能 ping 通设备，7447/TCP 可连接
 - [ ] 使用与正式服务相同的 Zenoh 配置可发现两个默认 Topic
 - [ ] 真实 RGB、双手触觉和双手姿态连续显示
+- [ ] 左右手弯曲标定文件均存在，启动前 24 帧保持空载
 - [ ] 左右手数据没有串线，右手拇指位于手掌左侧
 - [ ] 双实例端口、配置和设备来源相互独立
 - [ ] 大屏设置为扩展模式而非镜像模式

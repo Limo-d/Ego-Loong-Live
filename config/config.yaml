@@ -54,9 +54,15 @@ tactile:
   fixed_min: 0.0
   fixed_max: 160.0
   contact_threshold: 3.0
+  display_deadzone: 3.0
   high_threshold: 16.0
   mirror_left: false
   mirror_right: false
+  bend_decoupling:
+    enabled: true
+    calibration_left: config/tactile/joint_decouple_calib_left.npz
+    calibration_right: config/tactile/joint_decouple_calib_right.npz
+    max_pose_distance: 6.0
 
 timeout:
   rgb_seconds: 2.0

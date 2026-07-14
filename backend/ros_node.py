@@ -172,7 +172,9 @@ class RosBridge:
                 next_tactile = now + tactile_period
                 for side in ("left", "right"):
                     try:
-                        tactile = self.tactile[side].process(hand[f"pressure_{side}"])
+                        tactile = self.tactile[side].process(
+                            hand[f"pressure_{side}"], hand.get(f"solve_state_{side}")
+                        )
                         tactile.update(topic=self.config["topics"]["hand"]["name"], field=f"pressure_{side}")
                         self.store.update(f"tactile_{side}", tactile, hand.get(f"pressure_stamp_{side}"))
                     except Exception as exc:
