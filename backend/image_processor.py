@@ -2,10 +2,46 @@
 from __future__ import annotations
 
 import base64
+from io import BytesIO
 from typing import Any
 
-import cv2
 import numpy as np
+
+try:
+    import cv2
+except ImportError:  # The lean Docker image uses Pillow instead of full OpenCV.
+    cv2 = None
+
+try:
+    from PIL import Image as PillowImage
+except ImportError:
+    PillowImage = None
+
+
+def _decode_compressed(data: bytes) -> np.ndarray:
+    if cv2 is not None:
+        encoded = np.frombuffer(data, dtype=np.uint8)
+        image = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
+        if image is not None:
+            return image
+    if PillowImage is not None:
+        with PillowImage.open(BytesIO(data)) as decoded:
+            rgb = np.asarray(decoded.convert("RGB"), dtype=np.uint8)
+        return np.ascontiguousarray(rgb[:, :, ::-1])
+    raise ValueError("Failed to decode image; install OpenCV or Pillow")
+
+
+def _encode_jpeg(image: np.ndarray, quality: int) -> bytes:
+    if cv2 is not None:
+        ok, encoded = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, quality])
+        if ok:
+            return encoded.tobytes()
+    if PillowImage is not None:
+        output = BytesIO()
+        rgb = np.ascontiguousarray(image[:, :, ::-1])
+        PillowImage.fromarray(rgb, mode="RGB").save(output, format="JPEG", quality=quality)
+        return output.getvalue()
+    raise ValueError("JPEG encoding failed; install OpenCV or Pillow")
 
 
 class ImageProcessor:
@@ -17,10 +53,7 @@ class ImageProcessor:
             raise ValueError("Ego-Loong Live forbids RGB cropping; rgb.allow_crop must be false")
 
     def process_compressed(self, item: dict[str, Any]) -> dict[str, Any]:
-        encoded = np.frombuffer(item["data"], dtype=np.uint8)
-        image = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
-        if image is None:
-            raise ValueError("Failed to decode sensor_msgs/CompressedImage")
+        image = _decode_compressed(item["data"])
         source_format = str(item.get("format", "compressed"))
         if not self.passthrough_compressed or ("jpeg" not in source_format.lower() and "jpg" not in source_format.lower()):
             return self.process_array(image, original_format=source_format, frame_id=item.get("frame_id"))
@@ -46,12 +79,15 @@ class ImageProcessor:
         if encoding in {"bgr8", "rgb8"}:
             image = rows[:, :width * 3].reshape(height, width, 3)
             if encoding == "rgb8":
-                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                image = np.ascontiguousarray(image[:, :, ::-1])
         elif encoding in {"bgra8", "rgba8"}:
             image = rows[:, :width * 4].reshape(height, width, 4)
-            image = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR if encoding == "rgba8" else cv2.COLOR_BGRA2BGR)
+            image = image[:, :, :3]
+            if encoding == "rgba8":
+                image = image[:, :, ::-1]
+            image = np.ascontiguousarray(image)
         elif encoding in {"mono8", "8uc1"}:
-            image = cv2.cvtColor(rows[:, :width], cv2.COLOR_GRAY2BGR)
+            image = np.repeat(rows[:, :width, np.newaxis], 3, axis=2)
         else:
             raise ValueError(f"Unsupported ROS Image encoding: {encoding}")
         return self.process_array(image, original_format=encoding, frame_id=item.get("frame_id"))
@@ -60,12 +96,10 @@ class ImageProcessor:
         if image.ndim != 3 or image.shape[2] != 3:
             raise ValueError(f"Expected BGR image HxWx3, got {image.shape}")
         # No resize, ROI or geometry transform is performed.
-        ok, encoded = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, self.quality])
-        if not ok:
-            raise ValueError("OpenCV JPEG encoding failed")
+        encoded = _encode_jpeg(image, self.quality)
         height, width = image.shape[:2]
         return {
-            "jpeg": base64.b64encode(encoded.tobytes()).decode("ascii"),
+            "jpeg": base64.b64encode(encoded).decode("ascii"),
             "mime": "image/jpeg",
             "width": int(width),
             "height": int(height),
@@ -76,4 +110,3 @@ class ImageProcessor:
             "preserve_full_frame": True,
             "cropped": False,
         }
-

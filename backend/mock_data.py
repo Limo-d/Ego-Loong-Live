@@ -6,8 +6,19 @@ import threading
 import time
 from typing import Any
 
-import cv2
 import numpy as np
+
+try:
+    import cv2
+except ImportError:  # The lean Docker image renders mock frames with Pillow.
+    cv2 = None
+
+try:
+    from PIL import Image as PillowImage
+    from PIL import ImageDraw
+except ImportError:
+    PillowImage = None
+    ImageDraw = None
 
 from .data_store import DataStore
 from .hand_pose_processor import HandPoseProcessor
@@ -76,10 +87,19 @@ class MockDataEngine(threading.Thread):
         image[..., 2] = np.clip(250 - 18 * x + 8 * np.cos(y * 7 + elapsed), 0, 255)
         cx = int(width * (0.5 + 0.28 * math.sin(elapsed * 0.55)))
         cy = int(height * (0.52 + 0.18 * math.cos(elapsed * 0.72)))
-        cv2.circle(image, (cx, cy), 54, (226, 159, 72), -1, cv2.LINE_AA)
-        cv2.circle(image, (cx, cy), 35, (246, 223, 176), -1, cv2.LINE_AA)
-        cv2.putText(image, "Ego-Loong Live / MOCK", (36, 58), cv2.FONT_HERSHEY_SIMPLEX, 1.05, (86, 107, 132), 2, cv2.LINE_AA)
-        cv2.putText(image, f"960 x 540  |  t={elapsed:07.2f}s", (38, height - 38), cv2.FONT_HERSHEY_SIMPLEX, 0.72, (83, 110, 139), 2, cv2.LINE_AA)
+        if cv2 is not None:
+            cv2.circle(image, (cx, cy), 54, (226, 159, 72), -1, cv2.LINE_AA)
+            cv2.circle(image, (cx, cy), 35, (246, 223, 176), -1, cv2.LINE_AA)
+            cv2.putText(image, "Ego-Loong Live / MOCK", (36, 58), cv2.FONT_HERSHEY_SIMPLEX, 1.05, (86, 107, 132), 2, cv2.LINE_AA)
+            cv2.putText(image, f"{width} x {height}  |  t={elapsed:07.2f}s", (38, height - 38), cv2.FONT_HERSHEY_SIMPLEX, 0.72, (83, 110, 139), 2, cv2.LINE_AA)
+        elif PillowImage is not None and ImageDraw is not None:
+            canvas = PillowImage.fromarray(np.ascontiguousarray(image[:, :, ::-1]))
+            draw = ImageDraw.Draw(canvas)
+            draw.ellipse((cx - 54, cy - 54, cx + 54, cy + 54), fill=(72, 159, 226))
+            draw.ellipse((cx - 35, cy - 35, cx + 35, cy + 35), fill=(176, 223, 246))
+            draw.text((36, 36), "Ego-Loong Live / MOCK", fill=(132, 107, 86))
+            draw.text((38, height - 38), f"{width} x {height}  |  t={elapsed:07.2f}s", fill=(139, 110, 83))
+            image = np.ascontiguousarray(np.asarray(canvas)[:, :, ::-1])
         return image
 
     def run(self) -> None:
@@ -107,4 +127,3 @@ class MockDataEngine(threading.Thread):
     def stop(self) -> None:
         self.stop_event.set()
         self.join(timeout=2.0)
-

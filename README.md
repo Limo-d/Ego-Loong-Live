@@ -320,6 +320,89 @@ sudo ufw allow 8000/tcp
 6. `/api/status` 中 RGB、触觉、姿态通道均未超时。
 7. 连续运行至少 30 分钟，没有逐渐增加的画面延迟。
 
+### 3.10 Docker 镜像部署（推荐用于快速迁移）
+
+仓库提供基于 Ubuntu 24.04 和 ROS 2 Jazzy 的 `Dockerfile`。镜像中已经包含：
+
+- ROS 2 Jazzy `ros-base`
+- `rmw_zenoh_cpp`、`rclpy`、`sensor_msgs`
+- 编译完成的项目自定义消息 `hand_frame`
+- FastAPI、Uvicorn、WebSocket、NumPy、Pillow 等运行依赖
+- 后端、前端、默认配置和健康检查
+
+浏览器仍在宿主机打开，不需要装进容器。首次构建默认使用清华 Ubuntu、ROS 2 和 PyPI 镜像源：
+
+```bash
+cd ~/Ego-Loong-Live
+docker build -t ego-loong-live:jazzy .
+```
+
+如不在国内，可切换回官方源：
+
+```bash
+docker build -t ego-loong-live:jazzy \
+  --build-arg UBUNTU_MIRROR=http://archive.ubuntu.com/ubuntu \
+  --build-arg UBUNTU_SECURITY_MIRROR=http://security.ubuntu.com/ubuntu \
+  --build-arg ROS_MIRROR=http://packages.ros.org/ros2/ubuntu \
+  --build-arg PYPI_MIRROR=https://pypi.org/simple \
+  .
+```
+
+先用 Mock 模式验收容器，不依赖真实设备：
+
+```bash
+docker run --rm --name ego-loong-live-mock \
+  -p 8000:8000 \
+  ego-loong-live:jazzy \
+  python -m backend.main --mock
+```
+
+打开 `http://localhost:8000/dashboard`。真实设备模式推荐 Linux 使用宿主网络，ROS 2 和 Zenoh 网络行为最直接：
+
+```bash
+docker run --rm --name ego-loong-live \
+  --network host \
+  -e EGO_ZENOH_ROUTER_ENDPOINT=tcp/192.168.3.13:7447 \
+  ego-loong-live:jazzy
+```
+
+使用 `--network host` 时不需要 `-p 8000:8000`。如设备 IP 改变，只改 `EGO_ZENOH_ROUTER_ENDPOINT`，无需重新构建镜像。
+
+使用独立设备配置文件时：
+
+```bash
+docker run --rm --name ego-loong-live \
+  --network host \
+  -e EGO_ZENOH_ROUTER_ENDPOINT=tcp/192.168.3.13:7447 \
+  -e EGO_LOONG_LIVE_CONFIG=/opt/ego-loong-live/config/device01.yaml \
+  -v "$PWD/config/device01.yaml:/opt/ego-loong-live/config/device01.yaml:ro" \
+  ego-loong-live:jazzy
+```
+
+后台运行和查看日志：
+
+```bash
+docker run -d --restart unless-stopped --name ego-loong-live \
+  --network host \
+  -e EGO_ZENOH_ROUTER_ENDPOINT=tcp/192.168.3.13:7447 \
+  ego-loong-live:jazzy
+
+docker logs -f ego-loong-live
+docker stop ego-loong-live
+```
+
+需要把已经构建好的镜像离线复制到另一台笔记本时：
+
+```bash
+# 原电脑导出
+docker save ego-loong-live:jazzy | gzip > ego-loong-live-jazzy.tar.gz
+
+# 将文件复制到新电脑后导入
+gunzip -c ego-loong-live-jazzy.tar.gz | docker load
+```
+
+导入后直接执行上面的 `docker run` 命令，不需要再次安装 ROS 2 或 Python 依赖。
+
 ## 4. 启动参数与配置
 
 ### 4.1 常用启动方式
@@ -777,4 +860,3 @@ docs/interface_audit.md           数据接口审计记录
 - [ ] 双实例端口、配置和设备来源相互独立
 - [ ] 大屏设置为扩展模式而非镜像模式
 - [ ] 满负载连续测试至少 1 小时，无持续增加的延迟或内存占用
-
