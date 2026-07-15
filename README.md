@@ -555,91 +555,66 @@ curl http://localhost:8000/api/status
 | 笔记本 B | `device03` | 8001 | `http://localhost:8001/dashboard` |
 | 笔记本 B | `device04` | 8002 | `http://localhost:8002/dashboard` |
 
-### 6.2 同名 Topic 必须区分
+### 6.2 使用 ROS Domain 隔离同名 Topic
 
-物理路由器只负责 IP 通信，不会自动区分同名 ROS Topic。推荐为每套设备设置唯一命名空间：
+物理路由器只负责 IP 通信，不会自动区分同名 ROS Topic。当前设备继续使用固定 Topic 名称，采用不同 `ROS_DOMAIN_ID` 隔离：
 
-```text
-/device01/factor_perception/rgb/image_rect/compressed
-/device01/hand_frame
-/device02/factor_perception/rgb/image_rect/compressed
-/device02/hand_frame
-/device03/factor_perception/rgb/image_rect/compressed
-/device03/hand_frame
-/device04/factor_perception/rgb/image_rect/compressed
-/device04/hand_frame
-```
+| 设备 | `ROS_DOMAIN_ID` | 配置文件 | Web 端口 |
+| --- | ---: | --- | ---: |
+| `device01` | 11 | `config/device01.yaml` | 8001 |
+| `device02` | 12 | `config/device02.yaml` | 8002 |
 
-设备节点发布相对 Topic 时：
+设备端必须在启动 ROS 2 发布节点之前设置对应 Domain：
 
 ```bash
-ros2 run <package> <node> --ros-args -r __ns:=/device01
+# 设备 01
+export ROS_DOMAIN_ID=11
+ros2 run <package> <node>
 ```
-
-设备节点发布以 `/` 开头的绝对 Topic 时必须显式 remap：
 
 ```bash
-ros2 run <package> <node> --ros-args \
-  -r /factor_perception/rgb/image_rect/compressed:=/device01/factor_perception/rgb/image_rect/compressed \
-  -r /hand_frame:=/device01/hand_frame
+# 设备 02
+export ROS_DOMAIN_ID=12
+ros2 run <package> <node>
 ```
 
-不要让四套设备在同一个 ROS 图中继续发布完全相同的 Topic，否则消息会交错，网页无法判断数据来源。
+上位机容器从各自 YAML 的 `ros.domain_id` 读取相同值。两个容器可以连接同一个 Zenoh Router，Domain 会隔离 ROS 图中的同名 `/hand_frame` 和 RGB Topic。只启动两个容器但让设备和容器都留在 Domain 0 不会产生隔离，消息仍会交错。
 
-如果设备端暂时无法改名，可以让每个后端 Client 只连接一个相互隔离的 Zenoh Router，或使用不同 `ROS_DOMAIN_ID`。这属于过渡方案，长期仍建议使用设备命名空间。
+### 6.3 一台笔记本启动两个 Docker 实例
 
-### 6.3 一台笔记本启动两个实例
-
-复制配置：
+仓库已提供完整的 `config/device01.yaml`、`config/device02.yaml` 和管理脚本：
 
 ```bash
-cp config/config.yaml config/device01.yaml
-cp config/config.yaml config/device02.yaml
+chmod +x scripts/docker_dual.sh
+./scripts/docker_dual.sh start
+./scripts/docker_dual.sh status
 ```
 
-编辑 `config/device01.yaml`：
-
-```yaml
-server:
-  host: 0.0.0.0
-  port: 8001
-
-topics:
-  rgb:
-    name: /device01/factor_perception/rgb/image_rect/compressed
-    type: sensor_msgs/msg/CompressedImage
-  hand:
-    name: /device01/hand_frame
-    type: hand_frame/msg/HandFrame
-  tactile_left:
-    name: /device01/hand_frame
-    type: hand_frame/msg/HandFrame
-    field: pressure_left
-  tactile_right:
-    name: /device01/hand_frame
-    type: hand_frame/msg/HandFrame
-    field: pressure_right
-```
-
-`device02.yaml` 使用 `/device02/...` 和端口 8002。
-
-终端 1：
+默认镜像为 `ge89jar/ego-loong-live:0715`。测试部署中，`device01` 默认连接 `tcp/192.168.1.110:7447`，`device02` 默认连接 `tcp/192.168.1.107:7447`。现场地址不同时可以分别覆盖：
 
 ```bash
-EGO_LOONG_LIVE_CONFIG=config/device01.yaml \
-EGO_ZENOH_ROUTER_ENDPOINT=tcp/192.168.10.11:7447 \
-./scripts/run.sh
+DEVICE01_ZENOH_ROUTER_ENDPOINT=tcp/<device01-ip>:7447 \
+DEVICE02_ZENOH_ROUTER_ENDPOINT=tcp/<device02-ip>:7447 \
+./scripts/docker_dual.sh start
 ```
 
-终端 2：
+如果之后改为两台设备共同使用一个集中式 Zenoh Router：
 
 ```bash
-EGO_LOONG_LIVE_CONFIG=config/device02.yaml \
-EGO_ZENOH_ROUTER_ENDPOINT=tcp/192.168.10.12:7447 \
-./scripts/run.sh
+EGO_ZENOH_ROUTER_ENDPOINT=tcp/<router-ip>:7447 \
+./scripts/docker_dual.sh start
 ```
 
-将两个浏览器窗口分别放到两块扩展屏并按 `F11` 全屏。笔记本 B 采用相同方式运行 `device03` 和 `device04`。
+常用管理命令：
+
+```bash
+./scripts/docker_dual.sh logs 1
+./scripts/docker_dual.sh logs 2
+./scripts/docker_dual.sh restart
+./scripts/docker_dual.sh stop
+```
+
+页面地址为 `http://localhost:8001/dashboard` 和 `http://localhost:8002/dashboard`。管理脚本会覆盖镜像原来固定检查 8000 端口的健康检查，分别检查 8001 和 8002。
 
 ## 7. 性能建议
 

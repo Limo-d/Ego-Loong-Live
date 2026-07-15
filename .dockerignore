@@ -30,6 +30,8 @@ rosbag2_*/
 .env
 .env.*
 config/device*.yaml
+!config/device01.yaml
+!config/device02.yaml
 config/local*.yaml
 config/*.local.yaml
 
@@ -37,4 +39,3 @@ config/*.local.yaml
 .idea/
 .DS_Store
 Thumbs.db
-

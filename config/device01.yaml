@@ -1,12 +1,12 @@
 server:
   host: 0.0.0.0
-  port: 8000
+  port: 8001
 
 mode:
   mock: false
 
 ros:
-  domain_id: 0
+  domain_id: 11
   discovery_refresh_seconds: 2.0
 
 topics:

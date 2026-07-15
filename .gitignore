@@ -46,6 +46,8 @@ captures/
 .env.*
 !.env.example
 config/device*.yaml
+!config/device01.yaml
+!config/device02.yaml
 config/local*.yaml
 config/*.local.yaml
 
