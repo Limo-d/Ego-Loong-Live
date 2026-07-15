@@ -2,7 +2,9 @@
 
 This is a dependency-light port of Retarget/retarget/hand_retarget/layout.py and
 human_fk.py. It preserves their index order, signs, coordinate system and bone
-geometry, replacing SciPy Rotation with equivalent NumPy matrices.
+geometry, replacing SciPy Rotation with equivalent NumPy matrices. Optional
+left-hand MCP swing offsets and limits affect FK points only; reported angle
+metadata always retains the original device values.
 """
 from __future__ import annotations
 
@@ -53,6 +55,15 @@ class HandPoseProcessor:
         viz = self.geometry.get("viz", {})
         self.flex_sign = int(viz.get("flex_sign", 1))
         self.swing_sign = int(viz.get("swing_sign", 1))
+        self.left_mcp_swing_limits = {
+            name: (float(bounds[0]), float(bounds[1]))
+            for name, bounds in viz.get("left_mcp_swing_limits_deg", {}).items()
+            if isinstance(bounds, (list, tuple)) and len(bounds) == 2
+        }
+        self.left_mcp_swing_offsets = {
+            name: float(value)
+            for name, value in viz.get("left_mcp_swing_offsets_deg", {}).items()
+        }
         # origin/handviz.js treats palm_mount_corr_deg as one rotation vector:
         # its direction is the axis and its Euclidean norm is the angle.  It is
         # applied at every finger-chain root without moving that root.
@@ -88,7 +99,14 @@ class HandPoseProcessor:
             angle_values = [self._clean(state, start + i) for i in range(4)]
             a = [item[0] for item in angle_values]
             valid_fingers[name] = any(item[1] for item in angle_values)
-            joints = ((a[0], a[1]), (a[2], 0.0), (a[3], 0.0))
+            swing = a[1]
+            if is_left and name in self.left_mcp_swing_limits:
+                # Correct a configured raw zero before clamping relative
+                # visual travel. Angle metadata below intentionally uses a[1].
+                swing -= self.left_mcp_swing_offsets.get(name, 0.0)
+                lower, upper = self.left_mcp_swing_limits[name]
+                swing = min(max(swing, lower), upper)
+            joints = ((a[0], swing), (a[2], 0.0), (a[3], 0.0))
             offset = self.offsets_mm[name]
             point = np.array([offset[0], offset[1], mirror * offset[2]], dtype=np.float64)
             points = [point.copy()]

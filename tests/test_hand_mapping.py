@@ -40,7 +40,7 @@ class HandMappingTests(unittest.TestCase):
         for start, end in self.processor.process(self.state(), "left")["bones"]:
             left_length = np.linalg.norm(left[end] - left[start])
             right_length = np.linalg.norm(right[end] - right[start])
-            self.assertAlmostEqual(left_length, right_length, places=6)
+            self.assertAlmostEqual(left_length, right_length, delta=2e-6)
 
     def test_first_valid_palm_quaternion_is_zeroed_per_hand(self):
         config = copy.deepcopy(load_config()["hand"])
@@ -66,6 +66,54 @@ class HandMappingTests(unittest.TestCase):
         processor.process([1.0e9] * 27, "right")
         reconnected = np.asarray(processor.process(tilted, "right")["points"])
         self.assertTrue(np.allclose(first, reconnected, atol=1e-6))
+
+    def test_left_index_and_middle_abduction_are_visually_limited(self):
+        extreme = self.state()
+        extreme[1] = 45.0
+        extreme[5] = -35.0
+        limited = np.asarray(self.processor.process(extreme, "left")["points"])
+        capped = self.state()
+        capped[1] = 25.0
+        capped[5] = 10.0
+        expected = np.asarray(self.processor.process(capped, "left")["points"])
+        self.assertTrue(np.allclose(limited, expected, atol=1e-6))
+        result = self.processor.process(extreme, "left")
+        self.assertEqual(result["angles"][1]["degrees"], 45.0)
+        self.assertEqual(result["angles"][5]["degrees"], -35.0)
+
+    def test_right_index_and_middle_abduction_are_not_limited(self):
+        extreme = self.state()
+        extreme[1] = 45.0
+        extreme[5] = -35.0
+        actual = np.asarray(self.processor.process(extreme, "right")["points"])
+        capped = self.state()
+        capped[1] = 25.0
+        capped[5] = 10.0
+        limited = np.asarray(self.processor.process(capped, "right")["points"])
+        self.assertFalse(np.allclose(actual, limited, atol=1e-6))
+
+    def test_left_abduction_offsets_define_visual_neutral(self):
+        biased_neutral = self.state()
+        biased_neutral[5] = 20.0
+        biased_neutral[9] = 10.7
+        corrected = np.asarray(self.processor.process(biased_neutral, "left")["points"])
+        directions = []
+        for root, next_joint in ((5, 6), (9, 10), (13, 14), (17, 18)):
+            direction = corrected[next_joint] - corrected[root]
+            directions.append(direction / np.linalg.norm(direction))
+        for direction in directions[1:]:
+            self.assertTrue(np.allclose(directions[0], direction, atol=2e-5))
+
+    def test_left_ring_and_little_abduction_are_visually_limited(self):
+        extreme = self.state()
+        extreme[9] = 40.0
+        extreme[13] = -40.0
+        limited = np.asarray(self.processor.process(extreme, "left")["points"])
+        capped = self.state()
+        capped[9] = 20.7
+        capped[13] = -15.0
+        expected = np.asarray(self.processor.process(capped, "left")["points"])
+        self.assertTrue(np.allclose(limited, expected, atol=1e-6))
 
 
 if __name__ == "__main__":

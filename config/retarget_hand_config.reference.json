@@ -1,5 +1,6 @@
 {
   "_说明": "hand_host 配置。port/baud=串口; nodes=IMU全局节点号=总线*100+ID(CAN1->1xx, CAN2->2xx, ID为can_node_id十六进制字面值如0x11->11; palm=手背,<0表示没有; fingers=拇指..小指 各[近,中,远]); line=can行列号(0起; bus_col=总线号列; gyro_cols为null用四元数差分代理, 拿到真陀螺列号后填[x,y,z]列与缩放到rad/s的系数); targets=校准进度目标(度); bones_mm=骨长(近/中/远, 拇指为掌骨/近节/远节); mcp_offsets_mm=各指根关节相对手腕的位置[前向,背向,拇指侧](拇指为CMC位置); hand=left/right",
+  "_可视化侧摆说明": "仅左手四指：有效侧摆角=clamp(原始MCP侧摆角-left_mcp_swing_offsets_deg中的零位偏置, left_mcp_swing_limits_deg中的下限, 上限)。offset未列出的手指按0度处理；limits未列出的手指不校正。只影响FK点，angles仍返回原始角，右手不受影响。",
   "port": "/dev/ttyACM0",
   "baud": 1000000,
   "http_port": 8765,
@@ -119,6 +120,16 @@
     ],
     "flex_sign": 1,
     "swing_sign": -1,
+    "left_mcp_swing_offsets_deg": {
+      "middle": 20,
+      "ring": 10.7
+    },
+    "left_mcp_swing_limits_deg": {
+      "index": [-15, 25],
+      "middle": [-10, 10],
+      "ring": [-10, 10],
+      "little": [-15, 10]
+    },
     "thumb_flex_sign": 1,
     "thumb_swing_sign": 1,
     "rest_pose_deg": [
